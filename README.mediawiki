@@ -3,7 +3,9 @@ Based on work by ''Sascha Schmidt''
 Updated 30-12-2015
 
 - now supports a channel being part of multiple bouquets
+
 - supports vanilla enigma v4 lamedb
+
 - tv/radio bouquet type determination based on bouquetfile extension (.tv/.radio)
 
 This script will save an enigma2 configuration into a TV-Headend configuration.
