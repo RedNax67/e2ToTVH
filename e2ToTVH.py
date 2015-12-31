@@ -167,6 +167,7 @@ class e2bouquets:
 
     for line in bqs:
       line = line.rstrip('\n')
+      # Skip commentlines
       if '1:64:' in line:
           continue
 
@@ -238,10 +239,8 @@ class tvhstruct:
 
     print "Reading TV-Headend service files..."
     for (path, dirs, files) in os.walk(self.directory + '/input/dvb/networks'):
-      #spath = path.split('\\')
       spath = os.path.basename(path)
 
-#      if spath[len(spath)-1] == "services":
       if spath == "services":
         for file in files:
           f = open(path + "/" + file)
