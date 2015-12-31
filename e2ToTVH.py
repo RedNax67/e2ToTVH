@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import sys, os, re, argparse, hashlib
-import pdb
 
 
 # Class handling the content of the lamedb.
@@ -131,9 +130,6 @@ class e2bouquets:
     self.tv_bouquets = []
     self.tv_bouquets_md5 = []
     self.tv_services = [] 
-    self.radio_bouquets = []
-    self.radio_bouquets_md5 = []
-    self.radio_services = []
 
     self.load()
 
@@ -153,6 +149,7 @@ class e2bouquets:
     services = [] 
     subbouquets = [] 
     bqtype = ""
+    xbq = []
 
     try:
       appLog('debug', 'Reading e2 bouquet file: ' + self.directory + "/" + filename)
@@ -166,9 +163,7 @@ class e2bouquets:
     # Regex to match certain lines.
     bqname_re = re.compile('#NAME (.*)')
     subbouquet_re = re.compile('#SERVICE: (.*:)(.*)')
-    #service_re =    re.compile('#SERVICE (.*:).*:.*:.*:.*:')
     service_re =    re.compile('#SERVICE (.*:)')
-    bqtype_re = re.compile('^#NAME .*\((.*)\)')
 
     for line in bqs:
       line = line.rstrip('\n')
@@ -186,10 +181,6 @@ class e2bouquets:
       if ".radio" in filename:
           bqtype = "Radio"
 
-      #sresult = bqtype_re.search(line)
-      #if sresult != None:
-      #  bqtype = sresult.group(1)
-
       # Subbouquet. 
       sresult = subbouquet_re.search(line)
       if sresult != None:
@@ -203,26 +194,23 @@ class e2bouquets:
 
     # Add bouquet to list if service exists.
     if len(services) > 0:
-      if bqtype == "TV":
-        appLog('debug', 'Found e2 TV bouquet: ' + bqname) 
-        self.tv_bouquets.append(bqname)
-        m = hashlib.md5()
-        m.update(bqname)
-        md5sid = m.hexdigest()
-        self.tv_bouquets_md5.append(md5sid)
-        for service in services:
+
+       appLog('debug', 'Found e2 TV bouquet: ' + bqname)
+       m = hashlib.md5()
+       m.update(bqname)
+       bqmd5 = m.hexdigest()
+       if bqtype == 'Radio':
+          if '(Radio)' not in bqname:
+              bqname = bqname + ' (Radio)'
+
+       self.tv_bouquets.append(({'bqname' : bqname,
+                                   'bqtype' : bqtype,
+                                   'bqmd5' : bqmd5 })
+        )
+
+       for service in services:
           appLog('debug', 'Found e2 TV service: ' + str(service))
           self.tv_services.append([service, bqname])
-      if bqtype == "Radio":
-        appLog('debug', 'Found e2 RADIO bouquet: ' + bqname)
-        self.radio_bouquets.append(bqname)
-        m = hashlib.md5()
-        m.update(bqname)
-        md5sid = m.hexdigest()
-        self.radio_bouquets_md5.append(md5sid)
-        for service in services:
-          appLog('debug', 'Found e2 RADIO service: ' + str(service))
-          self.radio_services.append([service, bqname])
 
     # Walk through other existing subbouquets.
     if len(subbouquets) > 0:
@@ -290,32 +278,25 @@ class tvhstruct:
     print "Writing TV-Headend bouquet configuration..."
 
     # Loop through all bouquets and write configuration files.
-    i = 1
     for bq in self.e2bq.tv_bouquets:
       print "Writing TV-Headend bouquet configuration..."
-      self.writeBouquetFile(self.e2bq.tv_bouquets_md5[i-1], bq)
-      i = i + 1
-    i = 1
-    for bq in self.e2bq.radio_bouquets:
-      self.writeBouquetFile(self.e2bq.radio_bouquets_md5[i-1], bq + ' (Radio)')
-      i = i + 1
+      self.writeBouquetFile(bq)
 
   # Write a TV-Headend bouquet file.
-  def writeBouquetFile(self, number, name):
-    print "Wrting bouquet file: " + name
-    appLog('debug', 'Bouquet name: ' + name)
+  def writeBouquetFile(self, bq):
+    print "Wrting bouquet file: " + bq['bqname']
+    appLog('debug', 'Bouquet name: ' + bq['bqname'])
 
     directory = self.directory + "/tag"
     try:
-      f = open(directory + "/" + number, 'w')
+      f = open(directory + "/" + bq['bqmd5'], 'w')
       f.write('{\n')
       f.write('\t"enabled": true,\n')
       f.write('\t"internal": false,\n')
       f.write('\t"titledIcon": false,\n')
-      f.write('\t"name": "' + name + '",\n')
+      f.write('\t"name": "' + bq['bqname'] + '",\n')
       f.write('\t"comment": "",\n')
       f.write('\t"icon": ""\n')
-      #f.write('\t"id": ' + str(number) + '\n')
       f.write('}\n')
       f.close()
     except:
@@ -343,63 +324,29 @@ class tvhstruct:
         continue
 
       # build array of bouquets
-      bqn = 1
       for bq in self.e2bq.tv_bouquets:
         if bq == service[1]:
           break;
-      bqn = bqn + 1
+
       del self.xbqs[:]
+
       for xsrv in self.e2bq.tv_services:
           if xsrv[0] == service[0]:
-              bqn = 0
               for xbq in self.e2bq.tv_bouquets:
-                  if xbq == xsrv[1]:
-                    self.xbqs.append(self.e2bq.tv_bouquets_md5[bqn])
-                  bqn = bqn + 1
+                  if xbq['bqname'] == xsrv[1]:
+                    self.xbqs.append(xbq['bqmd5'])
 
       self.writeServiceFile(servicedata['hsid'], i, tvhkey, self.xbqs)
 
-
-
-    # Write RADIO services.
-    i = 1
-    for service in self.e2bq.radio_services:
-      i = i + 1
-      servicedata = self.lamedb.getServiceBySRef(service[0])
-      if servicedata == None:
-        print "ERROR: ServiceReference from bouquet not found in lamedb: " + service[0]
-        continue
-
-      tvhkey = self.getServiceByName(servicedata['sname'], servicedata['provider'])
-      if tvhkey == None:
-        print "  Could not find service in TV-Headend service list: " + servicedata['sname'] + " (" + \
-          servicedata['provider'] + ")"
-        continue
-
-      bqn = 1
-      for bq in self.e2bq.radio_bouquets:
-        if bq == service[1]:
-          break;
-        bqn = bqn + 1
-        del self.xbqs[:]
-        for xsrv in self.e2bq.radio_services:
-            if xsrv[0] == service[0]:
-                bqn = 0
-                for xbq in self.e2bq.radio_bouquets:
-                    if xbq == xsrv[1]:
-                      self.xbqs.append(self.e2bq.radio_bouquets_md5[bqn])
-                    bqn = bqn + 1
-
-      self.writeServiceFile(servicedata['hsid'], i, tvhkey, self.xbqs)
 
   # Write a TV-Headend service file.
-  def writeServiceFile(self, sid, channelnumber, tvhkey, tag):
+  def writeServiceFile(self, sid, channelnumber, tvhkey, tags):
     directory = self.directory + "/config"
     try:
       m = hashlib.md5()
       m.update(sid)
       md5sid = m.hexdigest()
-      appLog('debug', 'Wring file for service: ' + md5sid)
+      appLog('debug', 'Wring file ' + md5sid + 'for service.')
       if os.path.isfile(directory + "/" + str(md5sid)) == True:
           return
       f = open(directory + "/" + str(md5sid), 'w')
@@ -414,9 +361,9 @@ class tvhstruct:
       f.write('\t\t"' + tvhkey + '"\n')
       f.write('\t],\n')
       f.write('\t"tags": [\n')
-      for etag in tag[:-1]:
+      for etag in tags[:-1]:
           f.write('\t\t"' + etag + '",\n')
-      f.write('\t\t"' + tag[-1] + '"\n')
+      f.write('\t\t"' + tags[-1] + '"\n')
       f.write('\t]\n')
       f.write('}\n')
       f.close()
