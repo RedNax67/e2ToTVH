@@ -238,9 +238,11 @@ class tvhstruct:
 
     print "Reading TV-Headend service files..."
     for (path, dirs, files) in os.walk(self.directory + '/input/dvb/networks'):
-      spath = path.split('\\')
+      #spath = path.split('\\')
+      spath = os.path.basename(path)
 
-      if spath[len(spath)-1] == "services":
+#      if spath[len(spath)-1] == "services":
+      if spath == "services":
         for file in files:
           f = open(path + "/" + file)
           content = f.readlines()
@@ -284,7 +286,7 @@ class tvhstruct:
 
   # Write a TV-Headend bouquet file.
   def writeBouquetFile(self, bq):
-    print "Wrting bouquet file: " + bq['bqname']
+    print "Writing bouquet file: " + bq['bqname']
     appLog('debug', 'Bouquet name: ' + bq['bqname'])
 
     directory = self.directory + "/tag"
@@ -336,17 +338,17 @@ class tvhstruct:
                   if xbq['bqname'] == xsrv[1]:
                     self.xbqs.append(xbq['bqmd5'])
 
-      self.writeServiceFile(servicedata['hsid'], i, tvhkey, self.xbqs)
+      self.writeServiceFile(servicedata['hsid'], i, tvhkey, self.xbqs, servicedata['sname'] )
 
 
   # Write a TV-Headend service file.
-  def writeServiceFile(self, sid, channelnumber, tvhkey, tags):
+  def writeServiceFile(self, sid, channelnumber, tvhkey, tags, name):
     directory = self.directory + "/config"
     try:
       m = hashlib.md5()
       m.update(sid)
       md5sid = m.hexdigest()
-      appLog('debug', 'Wring file ' + md5sid + 'for service.')
+      appLog('debug', 'Writing file ' + md5sid + ' for service: ' + name )
       if os.path.isfile(directory + "/" + str(md5sid)) == True:
           return
       f = open(directory + "/" + str(md5sid), 'w')
